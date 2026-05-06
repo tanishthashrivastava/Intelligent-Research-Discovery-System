@@ -8,10 +8,10 @@ from fastapi.responses import FileResponse
 from PyPDF2 import PdfReader
 import requests
 
-#  PUT YOUR API KEY HERE
+# API KEY
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# Create uploads folder 
+# Create uploads folder
 os.makedirs("uploads", exist_ok=True)
 
 app = FastAPI()
@@ -76,7 +76,7 @@ async def upload_paper(file: UploadFile = File(...)):
         return {"message": "File uploaded successfully"}
 
     except Exception as e:
-        print(" Upload Error:", e)
+        print("Upload Error:", e)
         return {"error": str(e)}
 
 
@@ -91,14 +91,18 @@ def get_papers():
 
 
 # =========================
-# SUMMARIZE (FINAL FIXED)
+# SUMMARIZE
 # =========================
 @app.get("/summarize/{filename}")
 def summarize_file(filename: str):
     try:
-        print(" Summarizing:", filename)
+        print("Summarizing:", filename)
 
         file_path = f"uploads/{filename}"
+
+        if not os.path.exists(file_path):
+            return {"summary": "File not found"}
+
         reader = PdfReader(file_path)
 
         text = ""
@@ -110,29 +114,28 @@ def summarize_file(filename: str):
         if not text.strip():
             return {"summary": "No readable text found"}
 
-        # Clean text
         text = text.replace("\n", " ")
         text = text[:3000]
 
         result = {"summary": None}
 
-        #  Gemini function
+        # OpenRouter function
         def run_openrouter():
-    try:
-        print(" Calling OpenRouter...")
+            try:
+                print("Calling OpenRouter...")
 
-        response = requests.post(
-            url="https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "openai/gpt-4o-mini",   # or any OpenRouter model
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": f"""
+                response = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "openai/gpt-4o-mini",
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": f"""
 Summarize this research paper:
 - Use bullet points
 - Keep it simple
@@ -141,17 +144,32 @@ Summarize this research paper:
 TEXT:
 {text}
 """
-                    }
-                ]
-            },
-            timeout=8
-        )
+                            }
+                        ]
+                    },
+                    timeout=20
+                )
 
-        data = response.json()
+                data = response.json()
 
-        if "choices" in data:
-            result["summary"] = data["choices"][0]["message"]["content"]
-            print(" OpenRouter success")
+                if "choices" in data:
+                    result["summary"] = data["choices"][0]["message"]["content"]
+                    print("OpenRouter success")
+
+            except Exception as e:
+                print("OpenRouter error:", e)
+
+        # Run thread
+        t = threading.Thread(target=run_openrouter)
+        t.start()
+        t.join(timeout=25)
+
+        if result["summary"]:
+            return {"summary": result["summary"]}
+
+        return {"summary": "Summary unavailable"}
 
     except Exception as e:
-        print(" OpenRouter error:", e)
+        print("Summary Error:", e)
+        return {"summary": str(e)} 
+    
