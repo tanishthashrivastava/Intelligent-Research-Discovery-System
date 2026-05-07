@@ -25,7 +25,7 @@ export default function SearchPapers({ user }: any) {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/search", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/search", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -83,7 +83,7 @@ export default function SearchPapers({ user }: any) {
   // SAVE
   const handleSave = async (paper: any) => {
     try {
-      const res = await fetch("http://127.0.0.1:8000/save-paper", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/save-paper", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -118,7 +118,7 @@ export default function SearchPapers({ user }: any) {
     setSummarizing(paper.link);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/summarize", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/summarize", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

@@ -1,6 +1,6 @@
 export async function summarizePaper(text: string) {
   try {
-    const res = await fetch("http://127.0.0.1:8000/summarize", {
+    const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/summarize", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -52,7 +52,7 @@ export async function askAssistant(
 ) {
   try {
     const res = await fetch(
-      "http://127.0.0.1:8000/ask",
+      "https://intelligent-research-discovery-system-production.up.railway.app/ask",
       {
         method: "POST",
         headers: {
