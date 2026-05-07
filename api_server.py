@@ -1141,3 +1141,9 @@ def suggestions():
     return [
         x.query for x in top_queries
     ]
+
+@app.get("/activity")
+def activity():
+    db = SessionLocal()
+    rows = db.query(models.DashboardActivity).all()
+    return rows 
