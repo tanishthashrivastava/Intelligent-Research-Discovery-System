@@ -20,7 +20,7 @@ export default function UploadPapers({ user }: { user: User }) {
   // FETCH PAPERS
   const fetchPapers = async () => {
     try {
-      const res = await fetch("http://localhost:8000/papers");
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/papers");
       const data = await res.json();
 
       // duplicate remove
@@ -67,7 +67,7 @@ export default function UploadPapers({ user }: { user: User }) {
         const formData = new FormData();
         formData.append("file", file);
 
-        const res = await fetch("http://localhost:8000/upload", {
+        const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/upload", {
           method: "POST",
           body: formData,
         });
@@ -94,7 +94,7 @@ export default function UploadPapers({ user }: { user: User }) {
     setSummary("");
 
     const res = await fetch(
-      `http://localhost:8000/summarize/${encodeURIComponent(filename)}`
+      `https://intelligent-research-discovery-system-production.up.railway.app/summarize/${encodeURIComponent(filename)}`
     );
 
     const data = await res.json();
@@ -123,7 +123,7 @@ export default function UploadPapers({ user }: { user: User }) {
         .join("\n\n")
         .slice(0, 12000);
 
-      const res = await fetch("http://localhost:8000/ask", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

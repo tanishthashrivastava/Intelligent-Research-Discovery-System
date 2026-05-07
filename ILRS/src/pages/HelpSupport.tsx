@@ -26,7 +26,7 @@ export default function HelpSupport({ user }: any) {
 
   const loadCommunity = async () => {
     try {
-      const res = await fetch("http://localhost:8000/community");
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/community");
       const data = await res.json();
 
       setCommunityData(data);
@@ -42,7 +42,7 @@ export default function HelpSupport({ user }: any) {
 
     try {
       const res = await fetch(
-        `http://localhost:8000/support/${user.email}`
+        `https://intelligent-research-discovery-system-production.up.railway.app/support/${user.email}`
       );
 
       const data = await res.json();
@@ -55,7 +55,7 @@ export default function HelpSupport({ user }: any) {
 
   const submitSupport = async () => {
     try {
-      const res = await fetch("http://localhost:8000/support", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/support", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -108,7 +108,7 @@ export default function HelpSupport({ user }: any) {
       desc: "Read our comprehensive guide on how to use the system.",
       action: () =>
         window.open(
-          "http://localhost:8000/docs/ILRS_Documentation.pdf",
+          "https://intelligent-research-discovery-system-production.up.railway.app/docs/ILRS_Documentation.pdf",
           "_blank"
         ),
     },

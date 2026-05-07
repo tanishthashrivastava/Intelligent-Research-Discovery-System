@@ -28,7 +28,7 @@ export default function Dashboard({ user }: { user: User }) {
   //  FETCH DASHBOARD STATS
   // =========================
   useEffect(() => {
-    fetch("http://localhost:8000/dashboard")
+    fetch("https://intelligent-research-discovery-system-production.up.railway.app/dashboard")
       .then(res => res.json())
       .then(data => {
         setStats({
@@ -45,7 +45,7 @@ export default function Dashboard({ user }: { user: User }) {
   //  FETCH GRAPH DATA
   // =========================
   useEffect(() => {
-    fetch("http://localhost:8000/dashboard-activity")
+    fetch("https://intelligent-research-discovery-system-production.up.railway.app/dashboard-activity")
       .then(res => res.json())
       .then(data => {
         setActivityData(data);
@@ -57,7 +57,7 @@ export default function Dashboard({ user }: { user: User }) {
   // FETCH SUGGESTIONS
   // =========================
   useEffect(() => {
-    fetch("http://localhost:8000/suggestions")
+    fetch("https://intelligent-research-discovery-system-production.up.railway.app/suggestions")
       .then(res => res.json())
       .then(data => {
         setTopics(data);

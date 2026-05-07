@@ -20,7 +20,7 @@ export default function Register({ onLogin }: { onLogin: (user: any) => void }) 
     setError("");
 
     try {
-      const res = await fetch("http://localhost:8000/signup", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

@@ -22,7 +22,7 @@ export default function Login({
     setError("");
 
     try {
-      const res = await fetch("http://localhost:8000/login", {
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

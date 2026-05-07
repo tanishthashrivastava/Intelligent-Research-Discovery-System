@@ -36,7 +36,7 @@ export default function Profile({
   const loadProfileStats = async () => {
     try {
       const res = await fetch(
-        `http://localhost:8000/profile/${safeUser.email}`
+        `https://intelligent-research-discovery-system-production.up.railway.app/profile/${safeUser.email}`
       );
 
       const data = await res.json();
@@ -52,7 +52,7 @@ export default function Profile({
   const saveProfile = async () => {
     try {
       const res = await fetch(
-        "http://localhost:8000/profile",
+        "https://intelligent-research-discovery-system-production.up.railway.app/profile",
         {
           method: "PUT",
           headers: {

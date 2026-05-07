@@ -23,7 +23,7 @@ export default function ResultsAnalysis() {
 
   const fetchLibrary = async () => {
     try {
-      const res = await fetch("http://localhost:8000/library");
+      const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/library");
       const data = await res.json();
 
       console.log("LIBRARY =", data);

@@ -27,7 +27,7 @@ export async function comparePapers(papers: any[]) {
       )
       .join("\n\n====================\n\n");
 
-    const res = await fetch("http://localhost:8000/compare", {
+    const res = await fetch("https://intelligent-research-discovery-system-production.up.railway.app/compare", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

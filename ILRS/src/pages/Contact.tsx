@@ -23,7 +23,7 @@ export default function Contact({ user }: any) {
 
     try {
       const res = await fetch(
-        `http://localhost:8000/contact/${email}`
+        `https://intelligent-research-discovery-system-production.up.railway.app/contact/${email}`
       );
 
       const data = await res.json();
@@ -39,7 +39,7 @@ export default function Contact({ user }: any) {
     if (user?.email) {
       setEmail(user.email);
 
-      fetch(`http://localhost:8000/contact/${user.email}`)
+      fetch(`https://intelligent-research-discovery-system-production.up.railway.app/contact/${user.email}`)
         .then((res) => res.json())
         .then((data) =>
           setHistory(Array.isArray(data) ? data : [])
@@ -55,7 +55,7 @@ export default function Contact({ user }: any) {
 
     try {
       const res = await fetch(
-        "http://localhost:8000/contact",
+        "https://intelligent-research-discovery-system-production.up.railway.app/contact",
         {
           method: "POST",
           headers: {
