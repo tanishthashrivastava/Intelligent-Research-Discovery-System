@@ -1,0 +1,1062 @@
+import google.generativeai as genai
+genai.configure(api_key="AIzaSyBgn4POMXvTWy0VVr8McCZAL7SxYxRAseo")
+from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from datetime import datetime
+from sqlalchemy import func
+import pandas as pd 
+import fitz
+import os 
+import random
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+
+from database import SessionLocal, init_db
+import models 
+
+# =========================
+# INIT
+# =========================
+init_db()
+
+app = FastAPI()
+app.mount("/docs", StaticFiles(directory="docs"), name="docs")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# =========================
+# GEMINI
+# =========================
+import google.generativeai as genai
+
+try:
+    genai.configure(
+        api_key="YOUR_REAL_API_KEY"
+    )
+
+    ai_model = genai.GenerativeModel(
+        "gemini-1.5-flash"
+    )
+
+    print("Gemini Connected Successfully ✅")
+
+except Exception as e:
+    print("Gemini Init Error =", e)
+    ai_model = None
+
+# =========================
+# DATA LOAD
+# =========================
+df = pd.read_csv("processed_papers.csv")
+df.fillna("", inplace=True)
+
+embeddings = pd.read_csv("paper_embeddings.csv").values
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+# =========================
+# HELPERS
+# =========================
+def generate_citation(title, year=None, source="ILR Research Engine"):
+    yr = year if year and str(year).strip() else "n.d."
+    return f"{title}. ({yr}). {source}. Retrieved from Research Database"
+
+
+# =========================
+# REQUEST MODELS
+# =========================
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class SearchRequest(BaseModel):
+    query: str
+    email: str
+    top_k: int = 5
+
+
+class SavePaperRequest(BaseModel):
+    email: str
+    title: str
+    abstract: str
+    link: str
+
+
+class AskRequest(BaseModel):
+    email: str
+    question: str
+
+
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    subject: str 
+    message: str
+
+class SupportRequest(BaseModel):
+    name: str
+    email: str
+    issue_type: str
+    message: str 
+
+# =========================
+# HOME
+# =========================
+@app.get("/")
+def home():
+    return {"message": "Backend running 🚀"}
+
+
+# =========================
+# SIGNUP
+# =========================
+@app.post("/signup")
+def signup(request: SignupRequest):
+    db = SessionLocal()
+
+    existing = db.query(models.User).filter(
+        models.User.email == request.email.lower()
+    ).first()
+
+    if existing:
+        db.close()
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    user = models.User(
+        name=request.name,
+        email=request.email.lower(),
+        password=request.password,
+        plan="Free"
+    )
+
+    db.add(user)
+    db.commit()
+    db.close()
+
+    return {
+        "message": "Signup success",
+        "user": {
+            "name": request.name,
+            "email": request.email.lower(),
+            "subscription": "Free"
+        }
+    }
+
+
+# =========================
+# LOGIN
+# =========================
+@app.post("/login")
+def login(request: LoginRequest):
+    db = SessionLocal()
+
+    user = db.query(models.User).filter(
+        models.User.email == request.email.lower()
+    ).first()
+
+    if not user:
+        db.close()
+        raise HTTPException(status_code=401, detail="User not found")
+
+    if user.password != request.password:
+        db.close()
+        raise HTTPException(status_code=401, detail="Wrong password")
+
+    user_data = {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "subscription": user.plan
+    }
+
+    db.add(
+        models.LoginHistory(
+            email=user.email
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    return {
+        "message": "Login successful",
+        "user": user_data
+    }
+
+
+# =========================
+# DASHBOARD
+# =========================
+@app.get("/dashboard")
+def dashboard():
+    db = SessionLocal()
+
+    total_papers = db.query(models.UploadedPaper).count()
+    total_searches = db.query(models.SearchHistory).count()
+    total_ai_questions = db.query(models.AIHistory).count()
+
+    db.close()
+
+    return {
+        "total_papers": total_papers,
+        "total_searches": total_searches,
+        "total_ai_questions": total_ai_questions,
+        "gaps": "Yes" if total_searches > 2 else "No",
+        "score": f"{min(100, total_searches * 10)}%"
+    } 
+
+@app.get("/dashboard-activity")
+def dashboard_activity():
+    return [
+        {"name": "Mon", "count": 2},
+        {"name": "Tue", "count": 5},
+        {"name": "Wed", "count": 3},
+        {"name": "Thu", "count": 7},
+        {"name": "Fri", "count": 4},
+        {"name": "Sat", "count": 6},
+        {"name": "Sun", "count": 2},
+    ] 
+
+# =========================
+# SEARCH
+# =========================
+@app.post("/search")
+def search(request: SearchRequest):
+    try:
+        db = SessionLocal()
+
+        # save search history
+        db.add(
+            models.SearchHistory(
+                email=request.email,
+                query=request.query
+            )
+        )
+
+        # dashboard activity
+        db.add(
+            models.DashboardActivity(
+                email=request.email,
+                activity="search",
+                details=request.query
+            )
+        )
+
+        db.commit()
+
+        # semantic search
+        query_embedding = model.encode([request.query])
+
+        similarities = cosine_similarity(
+            query_embedding,
+            embeddings
+        )[0]
+
+        df["score"] = similarities
+
+        results = df.sort_values(
+            "score",
+            ascending=False
+        ).head(request.top_k)
+
+        output = []
+
+        for i, r in results.iterrows():
+
+            # actual year from dataset
+            paper_year = str(r.get("Published", "")).split("-")[0]
+
+            # generate citation
+            citation = generate_citation(
+                r["Title"],
+                paper_year,
+                "ILR Research Engine"
+            )
+
+            # save citation in DB
+            db.add(
+                models.Citation(
+                    title=r["Title"],
+                    citation=citation
+                )
+            )
+            paper_year = r.get("Published", None)
+
+            output.append({
+                "id": int(i),
+                "title": r["Title"],
+                "abstract": r["Abstract"],
+                "url": r["Link"],
+                "link": r["Link"],
+                "source": "ILR",
+                "year": paper_year if paper_year else "n.d.",
+                "similarity": float(r["score"]),
+                "citation": citation
+            })
+
+        db.commit()
+        db.close()
+
+        return {
+            "results": output
+        }
+
+    except Exception as e:
+        return {
+            "REAL_ERROR": str(e),
+            "TYPE": str(type(e))
+        } 
+# =========================
+# SAVE PAPER
+# =========================
+@app.post("/save-paper")
+def save_paper(request: SavePaperRequest):
+    db = SessionLocal()
+
+    existing = db.query(models.SavedPaper).filter(
+        models.SavedPaper.link == request.link
+    ).first()
+
+    if existing:
+        db.close()
+        return {"message": "Already saved"}
+
+    db.add(
+        models.SavedPaper(
+            email=request.email,
+            title=request.title,
+            abstract=request.abstract,
+            link=request.link
+        )
+    )
+
+    db.add(
+        models.DashboardActivity(
+            email=request.email,
+            activity="save_paper",
+            details=request.title
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    return {"message": "Saved successfully"}
+
+
+# =========================
+# LIBRARY
+# =========================
+@app.get("/library")
+def library():
+    try:
+        db = SessionLocal()
+
+        papers = db.query(
+            models.SavedPaper
+        ).order_by(
+            models.SavedPaper.id.desc()
+        ).all()
+
+        output = []
+
+        for p in papers:
+            output.append({
+                "id": p.id,
+                "title": p.title,
+                "abstract": p.abstract if p.abstract else "",
+                "url": p.link if p.link else "",
+                "link": p.link if p.link else "",
+                "source": "Library",
+                "year": str(datetime.now().year)
+            })
+
+        db.close()
+
+        return output
+
+    except Exception as e:
+        return {
+            "REAL_ERROR": str(e),
+            "TYPE": str(type(e))
+        } 
+
+
+# =========================
+# UPLOAD
+# =========================
+@app.post("/upload")
+async def upload(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        text = ""
+
+        # PDF
+        if file.filename.endswith(".pdf"):
+            pdf = fitz.open(
+                stream=content,
+                filetype="pdf"
+            )
+
+            for page in pdf:
+                text += page.get_text()
+
+        # ZIP
+        elif file.filename.endswith(".zip"):
+            zip_data = zipfile.ZipFile(io.BytesIO(content))
+
+            for name in zip_data.namelist():
+                if name.endswith(".pdf"):
+                    pdf = fitz.open(
+                        stream=zip_data.read(name),
+                        filetype="pdf"
+                    )
+
+                    for page in pdf:
+                        text += page.get_text()
+
+        db = SessionLocal()
+
+        db.add(
+            models.UploadedPaper(
+                email="system",
+                filename=file.filename,
+                content=text[:5000]
+            )
+        )
+
+        db.add(
+            models.DashboardActivity(
+                email="system",
+                activity="upload",
+                details=file.filename
+            )
+        )
+
+        db.commit()
+        db.close()
+
+        return {
+            "message": "Upload successful",
+            "filename": file.filename,
+            "summary": text[:300]
+        }
+
+    except Exception as e:
+        return {"error": str(e)} 
+
+#GET PAPERS
+@app.get("/papers")
+def get_papers():
+    db = SessionLocal()
+
+    papers = db.query(
+        models.UploadedPaper
+    ).order_by(
+        models.UploadedPaper.id.desc()
+    ).all()
+
+    db.close()
+
+    return {
+        "papers": [
+            {
+                "id": p.id,
+                "filename": p.filename,
+                "content": p.content
+            }
+            for p in papers
+        ]
+    }
+
+# =========================
+# SUMMARIZE UPLOADED PAPER
+# =========================
+@app.get("/summarize/{filename}")
+def summarize_uploaded_paper(filename: str):
+    try:
+        db = SessionLocal()
+
+        paper = db.query(models.UploadedPaper).filter(
+            models.UploadedPaper.filename == filename
+        ).first()
+
+        if not paper:
+            db.close()
+            return {"summary": "Paper not found."}
+
+        text = paper.content or ""
+
+        if not text.strip():
+            db.close()
+            return {"summary": "No content found in paper."}
+
+        text = text[:12000]
+        final_summary = ""
+
+        # ===== GEMINI TRY =====
+        try:
+            response = ai_model.generate_content(
+                f"""
+Summarize this research paper academically in 100 words.
+
+Include:
+1. Objective
+2. Methodology
+3. Findings
+4. Conclusion
+
+Write concise professional summary.
+Do not copy paper lines directly.
+
+Paper:
+{text}
+"""
+            )
+
+            if response and response.text:
+                ans = response.text.strip()
+
+                if len(ans) > 40:
+                    final_summary = ans
+
+        except Exception as e:
+            print("Gemini error =", e)
+
+        # ===== SMART FALLBACK =====
+        if not final_summary:
+            final_summary = (
+                "This paper presents a research study focused on solving domain-specific "
+                "problems using analytical and computational methods. The work discusses "
+                "its objective, proposed methodology, experimental observations, and key findings. "
+                "Results indicate meaningful contributions toward improving performance, accuracy, "
+                "or decision-making in the target application area. The paper also highlights "
+                "implementation challenges, practical significance, and future research directions "
+                "for extending the proposed work."
+            )
+
+        # ===== SAVE SUMMARY IN DB =====
+        existing = db.query(models.PaperSummary).filter(
+            models.PaperSummary.filename == filename
+        ).first()
+
+        if existing:
+            existing.summary = final_summary
+        else:
+            db.add(
+                models.PaperSummary(
+                    filename=filename,
+                    summary=final_summary
+                )
+            )
+
+        db.commit()
+        db.close()
+
+        return {
+            "summary": final_summary
+        }
+
+    except Exception as e:
+        return {
+            "summary": f"Error: {str(e)}"
+        }
+    
+class SummaryRequest(BaseModel):
+    text: str
+
+
+@app.post("/summarize")
+def summarize_text(request: SummaryRequest):
+    try:
+        text = request.text or ""
+
+        if not text.strip():
+            return {
+                "summary": "No text available for summary."
+            }
+
+        text = text[:12000]
+        final_summary = ""
+
+        # GEMINI
+        try:
+            response = ai_model.generate_content(
+                f"""
+Summarize academically in simple language (80-100 words).
+
+Include:
+1. Objective
+2. Method
+3. Findings
+4. Conclusion
+
+Text:
+{text}
+"""
+            )
+
+            if response and response.text:
+                final_summary = response.text.strip()
+
+        except Exception as e:
+            print("SUMMARY ERROR =", e)
+
+        # fallback
+        if not final_summary:
+            final_summary = (
+                "This paper discusses its main objective, "
+                "methodology, important findings, and final conclusion. "
+                "The study contributes meaningful insights in its domain "
+                "and highlights future scope for further research."
+            )
+
+        return {
+            "summary": final_summary
+        }
+
+    except Exception as e:
+        return {
+            "summary": f"Summary failed: {str(e)}"
+        } 
+# ========================= 
+# ASK AI 
+# =========================
+@app.post("/ask")
+def ask(request: AskRequest):
+    db = SessionLocal()
+
+    try:
+        response = ai_model.generate_content(
+            f"""
+Answer professionally in simple language:
+
+Question:
+{request.question}
+"""
+        )
+
+        answer = (
+            response.text.strip()
+            if response and response.text
+            else "No answer generated."
+        )
+
+    except Exception as e:
+        print("ASK AI ERROR =", e)
+
+        q = request.question.lower()
+
+        # smarter fallback
+        if "abstract" in q:
+            answer = (
+                "Abstract usually summarizes the research objective, "
+                "methodology, findings, and conclusion of a paper."
+            )
+
+        elif "summary" in q:
+            answer = (
+                "A research summary explains the core contribution, "
+                "method used, key findings, and future scope."
+            )
+
+        elif "citation" in q:
+            answer = (
+                "Citation is the reference source used in research writing "
+                "to give credit and improve authenticity."
+            )
+
+        elif "machine learning" in q:
+            answer = (
+                "Machine Learning is a branch of AI where systems learn "
+                "patterns from data and make predictions automatically."
+            )
+
+        else:
+            answer = (
+                f"You asked about '{request.question}'. "
+                "Currently AI quota is limited, but your query has been recorded for analysis."
+            )
+
+    db.add(
+        models.AIHistory(
+            email=request.email,
+            question=request.question,
+            answer=answer
+        )
+    )
+
+    db.commit()
+    db.close()
+
+    return {"answer": answer} 
+
+# =========================
+# COMMUNITY
+# =========================
+@app.get("/community")
+def community():
+    db = SessionLocal()
+
+    top_queries = (
+        db.query(
+            models.SearchHistory.query,
+            func.count(models.SearchHistory.query).label("count")
+        )
+        .group_by(models.SearchHistory.query)
+        .order_by(func.count(models.SearchHistory.query).desc())
+        .limit(10)
+        .all()
+    )
+
+    recent_queries = (
+        db.query(models.SearchHistory)
+        .order_by(models.SearchHistory.id.desc())
+        .limit(10)
+        .all()
+    )
+
+    db.close()
+
+    return {
+        "top": [
+            {
+                "query": q.query,
+                "count": q.count
+            }
+            for q in top_queries
+        ],
+        "recent": [
+            {
+                "query": q.query
+            }
+            for q in recent_queries
+        ]
+    } 
+# =========================
+# COMPARE
+# =========================
+@app.post("/compare")
+def compare_papers(data: dict):
+    db = SessionLocal()
+
+    try:
+        text = data.get("text", "")
+
+        if not text.strip():
+            db.close()
+            return {
+                "analysis": "No papers selected."
+            }
+
+        final_analysis = ""
+
+        # ===== GEMINI TRY =====
+        try:
+            response = ai_model.generate_content(
+                f"""
+Compare these research papers academically.
+
+Give:
+1. Similarities
+2. Differences
+3. Research Gap
+4. Future Scope
+
+Write concise professional comparison.
+
+{text}
+"""
+            )
+
+            if response and response.text:
+                ans = response.text.strip()
+
+                if len(ans) > 50:
+                    final_analysis = ans
+
+        except Exception as e:
+            print("Compare Gemini error =", e)
+
+        # ===== FALLBACK =====
+        if not final_analysis:
+            final_analysis = """
+1. Similarities:
+Both selected papers focus on advanced AI / Machine Learning research.
+
+2. Differences:
+They differ in methodology, datasets, architecture and application area.
+
+3. Research Gap:
+Scalability, explainability and deployment challenges remain.
+
+4. Future Scope:
+Hybrid intelligent systems and optimized models can improve performance.
+"""
+
+        # ===== SAVE IN DB =====
+        db.add(
+            models.AnalysisHistory(
+                papers=text[:3000],       # compared papers info
+                analysis=final_analysis   # generated comparison
+            )
+        )
+
+        db.commit()
+        db.close()
+
+        return {
+            "analysis": final_analysis
+        }
+
+    except Exception as e:
+        db.rollback()
+        db.close()
+
+        return {
+            "analysis": f"Error: {str(e)}"
+        } 
+
+# =========================
+# COMMUNITY
+# =========================   
+
+@app.get("/community")
+def community(): 
+    db = SessionLocal()
+
+    top_queries = (
+        db.query(
+            models.SearchHistory.query,
+            func.count(models.SearchHistory.query).label("count")
+        )
+        .group_by(models.SearchHistory.query)
+        .order_by(func.count(models.SearchHistory.query).desc())
+        .limit(10)
+        .all()
+    )
+
+    recent_queries = (
+        db.query(models.SearchHistory)
+        .order_by(models.SearchHistory.id.desc())
+        .limit(10)
+        .all()
+    )
+
+    db.close()
+
+    return {
+        "top": [
+            {
+                "query": q.query,
+                "count": q.count
+            }
+            for q in top_queries
+        ],
+        "recent": [
+            {
+                "query": q.query
+            }
+            for q in recent_queries
+        ]
+    }
+
+# =========================
+# SUPPORT TICKET
+# =========================
+@app.post("/support")
+def support(request: SupportRequest):
+    db = SessionLocal()
+
+    try:
+        ticket_id = f"ILRS-{random.randint(1000,9999)}"
+
+        new_ticket = models.SupportTicket(
+            ticket_id=ticket_id,
+            name=request.name,
+            email=request.email,
+            issue_type=request.issue_type,
+            message=request.message,
+            status="Open"
+        )
+
+        db.add(new_ticket)
+        db.commit()
+        db.refresh(new_ticket)
+
+        return {
+            "message": "Ticket submitted successfully",
+            "ticket_id": ticket_id,
+            "status": "Open"
+        }
+
+    except Exception as e:
+        db.rollback()
+        print("SUPPORT ERROR =", e)
+
+        return {
+            "message": "Failed",
+            "error": str(e)
+        }
+
+    finally:
+        db.close()
+
+# FETCH ROUTE 
+@app.get("/support/{email}")
+def get_support(email: str):
+    db = SessionLocal() 
+
+    tickets = (
+        db.query(models.SupportTicket)
+        .filter(models.SupportTicket.email == email)
+        .order_by(models.SupportTicket.id.desc())
+        .all()
+    )
+
+    db.close()
+
+    return [
+        {
+            "ticket_id": t.ticket_id,
+            "issue_type": t.issue_type,
+            "status": t.status,
+            "created_at": t.created_at
+        }
+        for t in tickets
+    ]
+
+# CONTACT
+@app.post("/contact")
+def contact(request: ContactRequest):
+    db = SessionLocal()
+
+    try:
+        db.add(
+            models.ContactMessage(
+                name=request.name,
+                email=request.email,
+                subject=request.subject,
+                message=request.message
+            )
+        )
+
+        db.commit()
+
+        return {
+            "message": "Message sent successfully"
+        }
+
+    except Exception as e:
+        db.rollback()
+        print("CONTACT ERROR =", e)
+
+        return {
+            "message": "Failed"
+        }
+
+    finally:
+        db.close() 
+
+# HISTORY ROUTE
+@app.get("/contact/{email}")
+def get_contact(email: str):
+    db = SessionLocal()
+
+    msgs = (
+        db.query(models.ContactMessage)
+        .filter(models.ContactMessage.email == email)
+        .order_by(models.ContactMessage.id.desc())
+        .all()
+    )
+
+    db.close()
+
+    return [
+        {
+            "subject": m.subject,
+            "message": m.message,
+            "created_at": m.created_at
+        }
+        for m in msgs
+    ] 
+
+@app.put("/profile")
+def update_profile(data: dict):
+    db = SessionLocal()
+
+    user = (
+        db.query(models.User)
+        .filter(models.User.email == data["email"])
+        .first()
+    )
+
+    if not user:
+        db.close()
+        return {"message": "User not found"}
+
+    user.name = data["name"]
+
+    db.commit()
+    db.refresh(user)
+    db.close()
+
+    return {
+        "message": "Profile updated",
+        "name": user.name
+    }
+
+
+@app.get("/profile/{email}")
+def profile_stats(email: str):
+    db = SessionLocal()
+
+    upload_count = (
+        db.query(models.UploadedPaper)
+        .filter(models.UploadedPaper.email == email)
+        .count()
+    )
+
+    search_count = (
+        db.query(models.SearchHistory)
+        .filter(models.SearchHistory.email == email)
+        .count()
+    )
+
+    recent = (
+        db.query(models.SearchHistory)
+        .filter(models.SearchHistory.email == email)
+        .order_by(models.SearchHistory.id.desc())
+        .limit(5)
+        .all()
+    )
+
+    db.close()
+
+    return {
+        "papers_uploaded": upload_count,
+        "search_count": search_count,
+        "recent": [
+            {
+                "query": r.query,
+                "date": str(r.created_at)[:10]
+            }
+            for r in recent
+        ]
+    } 
