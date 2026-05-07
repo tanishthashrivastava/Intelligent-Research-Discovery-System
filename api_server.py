@@ -308,9 +308,9 @@ def dashboard_activity():
 # ========================= 
 # SEARCH
 # =========================
-load_resources() 
 @app.post("/search")
 def search(request: SearchRequest):
+    load_resources() 
     try:
         db = SessionLocal()
 
