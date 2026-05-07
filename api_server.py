@@ -42,11 +42,23 @@ print("OpenRouter Connected Successfully ")
 # =========================
 # DATA LOAD
 # =========================
-df = pd.read_csv("processed_papers.csv")
-df.fillna("", inplace=True)
+df = None
+embeddings = None
+model = None
 
-embeddings = pd.read_csv("paper_embeddings.csv").values
-model = SentenceTransformer("all-MiniLM-L6-v2")
+
+def load_resources():
+    global df, embeddings, model
+
+    if df is None:
+        df = pd.read_csv("processed_papers.csv")
+        df.fillna("", inplace=True)
+
+    if embeddings is None:
+        embeddings = pd.read_csv("paper_embeddings.csv").values
+
+    if model is None:
+        model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 # =========================
@@ -296,6 +308,7 @@ def dashboard_activity():
 # ========================= 
 # SEARCH
 # =========================
+load_resources() 
 @app.post("/search")
 def search(request: SearchRequest):
     try:
