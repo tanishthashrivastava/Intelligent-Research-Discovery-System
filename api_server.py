@@ -14,6 +14,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import requests
 from database import SessionLocal, init_db
 import models 
+from fastapi.responses import HTMLResponse
 
 # =========================
 # INIT
@@ -1147,3 +1148,80 @@ def activity():
     db = SessionLocal()
     rows = db.query(models.DashboardActivity).all()
     return rows 
+
+from fastapi.responses import HTMLResponse
+
+
+@app.get("/activity-table", response_class=HTMLResponse)
+def activity_table():
+    db = SessionLocal()
+
+    rows = db.query(models.DashboardActivity)\
+             .order_by(models.DashboardActivity.id.desc())\
+             .all()
+
+    html = """
+    <html>
+    <head>
+        <title>Activity Dashboard</title>
+        <style>
+            body{
+                font-family: Arial;
+                margin:40px;
+                background:#f5f7fb;
+            }
+            h2{
+                color:#222;
+            }
+            table{
+                width:100%;
+                border-collapse:collapse;
+                background:white;
+                box-shadow:0 5px 20px rgba(0,0,0,.08);
+            }
+            th{
+                background:#2563eb;
+                color:white;
+                padding:14px;
+                text-align:left;
+            }
+            td{
+                padding:12px;
+                border-bottom:1px solid #ddd;
+            }
+            tr:hover{
+                background:#f1f5ff;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>User Activity Database</h2>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Activity</th>
+                <th>Details</th>
+                <th>Created At</th>
+            </tr>
+    """
+
+    for r in rows:
+        html += f"""
+            <tr>
+                <td>{r.id}</td>
+                <td>{r.email}</td>
+                <td>{r.activity}</td>
+                <td>{r.details}</td>
+                <td>{r.created_at}</td>
+            </tr>
+        """
+
+    html += """
+        </table>
+    </body>
+    </html>
+    """
+
+    db.close()
+    return html
