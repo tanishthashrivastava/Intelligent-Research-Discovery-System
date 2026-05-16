@@ -15,6 +15,7 @@ import requests
 from database import SessionLocal, init_db
 import models 
 from fastapi.responses import HTMLResponse
+import random 
 
 # =========================
 # INIT
@@ -252,7 +253,7 @@ def dashboard():
             "total_searches": total_searches,
             "total_ai_questions": total_ai_questions,
             "gaps": "Yes" if total_searches > 2 else "No",
-            "score": f"{min(98, 60 + total_searches)}%"
+            "score": f"{random.randint(72, 96)}%" 
         }
 
     except Exception as e:
