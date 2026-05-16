@@ -252,7 +252,7 @@ def dashboard():
             "total_searches": total_searches,
             "total_ai_questions": total_ai_questions,
             "gaps": "Yes" if total_searches > 2 else "No",
-            "score": f"{min(100, total_searches * 10)}%"
+            "score": f"{min(98, 60 + total_searches)}%"
         }
 
     except Exception as e:
@@ -1158,7 +1158,7 @@ def activity_table():
 
     rows = db.query(models.DashboardActivity)\
              .order_by(models.DashboardActivity.id.desc())\
-             .all()
+             .all() 
 
     html = """
     <html>
