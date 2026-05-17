@@ -12,10 +12,11 @@ import random
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import requests
-from database import SessionLocal, init_db
-import models 
+from backend.database import SessionLocal, init_db
+from backend import models
 from fastapi.responses import HTMLResponse
 import random 
+from backend.semantic_search import 
 
 # =========================
 # INIT
