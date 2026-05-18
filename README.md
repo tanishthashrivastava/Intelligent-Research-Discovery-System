@@ -1,4 +1,3 @@
-<img width="826" height="794" alt="image" src="https://github.com/user-attachments/assets/bf346d5b-5837-48be-bd25-52810022e9c9" /><img width="990" height="872" alt="image" src="https://github.com/user-attachments/assets/bcea14f7-4a1d-4bf7-bb84-cb2a504901d4" /># Intelligent Research Discovery System
 ### AI-Powered Semantic Literature Review & Research Analysis Platform
 
 An intelligent research paper discovery and analysis system that uses Semantic Search, NLP, Embeddings, and AI-powered assistance to improve literature review, paper retrieval, summarization, and research comparison.
