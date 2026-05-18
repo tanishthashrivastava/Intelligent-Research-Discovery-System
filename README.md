@@ -1,3 +1,5 @@
+<img width="847" height="871" alt="image" src="https://github.com/user-attachments/assets/d13fdea6-0a7f-4685-bb34-e9aec0c73d11" />
+
 ### AI-Powered Semantic Literature Review & Research Analysis Platform
 
 An intelligent research paper discovery and analysis system that uses Semantic Search, NLP, Embeddings, and AI-powered assistance to improve literature review, paper retrieval, summarization, and research comparison.
@@ -102,9 +104,6 @@ Frontend → FastAPI Backend → NLP Processing → Embeddings → Semantic Sear
 ---
 
 # Screenshots
-## About Project 
-<img width="847" height="871" alt="image" src="https://github.com/user-attachments/assets/d13fdea6-0a7f-4685-bb34-e9aec0c73d11" />
-
 ## HomePage
 <img width="990" height="872" alt="image" src="https://github.com/user-attachments/assets/d0c044ce-a100-4566-8689-58d67a786206" />
 
