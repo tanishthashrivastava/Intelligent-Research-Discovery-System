@@ -1,23 +1,22 @@
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import func
-import pandas as pd 
+
+import pandas as pd
 import fitz
-import os  
+import os
 import random
+import requests
+
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-import requests
-from backend.database import SessionLocal, init_db
-from backend import models
-from fastapi.responses import HTMLResponse
-import random 
-from backend.semantic_search import 
 
+from backend.database import SessionLocal, init_db, Base
+from backend import models 
 # =========================
 # INIT
 # =========================
