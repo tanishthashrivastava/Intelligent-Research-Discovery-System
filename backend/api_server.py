@@ -49,15 +49,21 @@ embeddings = None
 model = None
 
 
+
 def load_resources():
     global df, embeddings, model
 
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    papers_path = os.path.join(BASE_DIR, "..", "data", "processed_papers.csv")
+    embeddings_path = os.path.join(BASE_DIR, "..", "data", "paper_embeddings.csv")
+
     if df is None:
-        df = pd.read_csv("processed_papers.csv")
+        df = pd.read_csv(papers_path)
         df.fillna("", inplace=True)
 
     if embeddings is None:
-        embeddings = pd.read_csv("paper_embeddings.csv").values
+        embeddings = pd.read_csv(embeddings_path).values
 
     if model is None:
         model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -407,7 +413,7 @@ def search(request: SearchRequest):
 # =========================
 @app.post("/save-paper")
 def save_paper(request: SavePaperRequest):
-    db = SessionLocal()
+    db = SessionLocal() 
 
     existing = db.query(models.SavedPaper).filter(
         models.SavedPaper.link == request.link
