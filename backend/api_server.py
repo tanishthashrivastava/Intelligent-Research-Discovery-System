@@ -254,18 +254,25 @@ def dashboard():
         total_searches = db.query(models.SearchHistory).count()
         total_ai_questions = db.query(models.AIHistory).count()
 
+        # Activity-based score calculation
+        paper_score = min(total_papers * 5, 40)
+        search_score = min(total_searches * 3, 30)
+        ai_score = min(total_ai_questions * 3, 30)
+
         score = min(
-            98,
-            65 + (total_papers * 2) + total_searches
+            paper_score +
+            search_score +
+            ai_score,
+            100
         )
-    
+
         return {
             "total_papers": total_papers,
             "total_searches": total_searches,
             "total_ai_questions": total_ai_questions,
             "gaps": "Yes" if total_searches > 2 else "No",
-            "score": f"{score}%"   
-        } 
+            "score": f"{score}%"
+        }
 
     except Exception as e:
         print("Dashboard Error =", e)
@@ -279,7 +286,7 @@ def dashboard():
         }
 
     finally:
-        db.close()
+        db.close() 
 
 
 @app.get("/dashboard-activity")
